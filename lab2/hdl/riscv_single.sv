@@ -25,6 +25,33 @@
 //   sw           0100011   010       immediate
 //   jal          1101111   immediate immediate
 
+// Add the following to the code:
+//  Instruction   opcode    funct3    funct7      
+//  auipc         0010111   imm       immediate   
+//  bge           1100011   101       immediate   
+//  bgeu          1100011   111       immediate   
+//  blt           1100011   100       immediate   
+//  bltu          1100011   110       immediate   
+//  bne           1100011   001       immediate    
+//  jalr          1100111   000       immediate
+//  lb            0000011   000       immediate
+//  lbu           0000011   100       immediate
+//  lh            0000011   001       immediate
+//  lhu           0000011   101       immediate
+//  lui           0110111   imm       immediate
+//  sb            0100011   000       immediate
+//  sh            0100011   001       immediate
+//  sll           0110011   001       0000000     
+//  slli          0010011   001       000000*     
+//  sltiu         0010011   011       immediate   
+//  sltu          0110011   011       0000000     
+//  sra           0110011   101       0100000     
+//  srai          0010011   101       010000**    
+//  srl           0110011   101       0000000     
+//  srli          0010011   101       000000*     
+//  xor           0110011   100       0000000     
+//  xori          0010011   100       immediate   
+
 module testbench();
 
    logic        clk;
