@@ -203,6 +203,12 @@ R0
 R1
 R0
 R1
+R0
+R1
+R0
+R1
+R0
+R1
 Z2 !s12c _opt1
 R1
 R2
@@ -266,10 +272,10 @@ n@_opt1
 Z10 OL;O;2023.4;77
 R3
 T_opt2
-!s110 1740902460
-V>5j]50DnHe=9_U^?OeJWW0
+!s110 1740903162
+VkAR4SEV=6Eo2Cz@Hh2^5;2
 R4
-=1-60189539da2d-67c4103c-4f-6618
+=1-60189539da2d-67c412fa-10e-648c
 R1
 R8
 R9
@@ -281,13 +287,13 @@ R10
 vadder
 Z11 2riscv_single.sv
 Z12 DXx6 sv_std 3 std 0 22 9oUSJO;AeEaW`l:M@^WG92
-Z13 !s110 1740902459
+Z13 !s110 1740903161
 !i10b 1
 !s100 h>IjVlS7Lid_jFcD6ZQ2Q0
 II3[3c?R7FkmBdL?@=A<lm0
 S1
 Z14 dE:/ComputerArchitecture/ecen4243S25/labgroup/lab2/hdl
-Z15 w1740900580
+Z15 w1740903149
 Z16 8riscv_single.sv
 Z17 Friscv_single.sv
 !i122 0
@@ -297,7 +303,7 @@ Z19 OL;L;2023.4;77
 r1
 !s85 0
 31
-Z20 !s108 1740902459.000000
+Z20 !s108 1740903161.000000
 Z21 !s107 riscv_single.sv|
 Z22 !s90 -reportprogress|300|riscv_single.sv|
 !i113 0
@@ -658,8 +664,8 @@ R11
 R12
 R13
 !i10b 1
-!s100 PVEFY_IJJiEmCgnnzJSVh3
-I=zT<ShOQ=nL?1PN1^iYCA0
+!s100 Vc=nVonV^JjcLoM6SN3T?3
+I:FjGBd2:7cTh]P96JKQmQ1
 S1
 R14
 R15

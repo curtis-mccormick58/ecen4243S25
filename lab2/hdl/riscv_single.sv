@@ -67,7 +67,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/auipc.memfile"};
+        memfilename = {"../testing/lui.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -83,7 +83,7 @@ module testbench();
      begin
 	clk <= 1; # 5; clk <= 0; # 5;
      end
-/*
+
    // check results
    always @(negedge clk)
      begin
@@ -97,7 +97,7 @@ module testbench();
            end
 	end
      end
-     */
+     
 endmodule // testbench
 
 module riscvsingle (input  logic        clk, reset,
