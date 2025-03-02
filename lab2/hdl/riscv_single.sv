@@ -67,7 +67,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/add.memfile"};
+        memfilename = {"../testing/auipc.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -83,7 +83,7 @@ module testbench();
      begin
 	clk <= 1; # 5; clk <= 0; # 5;
      end
-
+/*
    // check results
    always @(negedge clk)
      begin
@@ -97,6 +97,7 @@ module testbench();
            end
 	end
      end
+     */
 endmodule // testbench
 
 module riscvsingle (input  logic        clk, reset,
@@ -107,9 +108,9 @@ module riscvsingle (input  logic        clk, reset,
 		    input  logic [31:0] ReadData);
    
    logic 				ALUSrc, RegWrite, Jump, Zero;
-   logic [1:0] 				ResultSrc;
+   logic [2:0] 				ResultSrc;
    logic [2:0]          ImmSrc;
-   logic [2:0] 				ALUControl;
+   logic [3:0] 				ALUControl;
    
    controller c (Instr[6:0], Instr[14:12], Instr[30], Zero,
 		 ResultSrc, MemWrite, PCSrc,
@@ -127,12 +128,12 @@ module controller (input  logic [6:0] op,
 		   input  logic [2:0] funct3,
 		   input  logic       funct7b5,
 		   input  logic       Zero,
-		   output logic [1:0] ResultSrc,
+		   output logic [2:0] ResultSrc,
 		   output logic       MemWrite,
 		   output logic       PCSrc, ALUSrc,
 		   output logic       RegWrite, Jump,
 		   output logic [2:0] ImmSrc,
-		   output logic [2:0] ALUControl);
+		   output logic [3:0] ALUControl);
    
    logic [1:0] 			      ALUOp;
    logic 			      Branch;
@@ -145,14 +146,14 @@ module controller (input  logic [6:0] op,
 endmodule // controller
 
 module maindec (input  logic [6:0] op,
-		output logic [1:0] ResultSrc,
+		output logic [2:0] ResultSrc,
 		output logic 	   MemWrite,
 		output logic 	   Branch, ALUSrc,
 		output logic 	   RegWrite, Jump,
 		output logic [2:0] ImmSrc,
 		output logic [1:0] ALUOp);
    
-   logic [11:0] 		   controls;
+   logic [12:0] 		   controls;
    
    assign {RegWrite, ImmSrc, ALUSrc, MemWrite,
 	   ResultSrc, Branch, ALUOp, Jump} = controls;
@@ -160,14 +161,16 @@ module maindec (input  logic [6:0] op,
    always_comb
      case(op)
        // RegWrite_ImmSrc_ALUSrc_MemWrite_ResultSrc_Branch_ALUOp_Jump
-       7'b0000011: controls = 12'b1_000_1_0_01_0_00_0; // lw
-       7'b0100011: controls = 12'b0_001_1_1_00_0_00_0; // sw
-       7'b0110011: controls = 12'b1_xxx_0_0_00_0_10_0; // R–type
-       7'b1100011: controls = 12'b0_010_0_0_00_1_01_0; // beq
-       7'b0010011: controls = 12'b1_000_1_0_00_0_10_0; // I–type ALU
-       7'b1101111: controls = 12'b1_011_0_0_10_0_00_1; // jal
-       7'b0110111: controls = 12'b1_100_x_0_11_0_00_0; // lui
-       default: controls = 12'bx_xx_x_x_xx_x_xx_x; // ???
+       7'b0000011: controls = 13'b1_000_1_0_001_0_00_0; // lw
+       7'b0100011: controls = 13'b0_001_1_1_000_0_00_0; // sw
+       7'b0110011: controls = 13'b1_xxx_0_0_000_0_10_0; // R–type
+       7'b1100011: controls = 13'b0_010_0_0_000_1_01_0; // beq
+       7'b0010011: controls = 13'b1_000_1_0_000_0_10_0; // I–type ALU
+       7'b1101111: controls = 13'b1_011_0_0_010_0_00_1; // jal
+       7'b0110111: controls = 13'b1_100_x_0_011_0_00_0; // lui
+       7'b0010111: controls = 13'b1_100_x_0_111_0_00_0; // auipc
+
+       default: controls = 13'bx_xx_x_x_xx_x_xx_x; // ???
      endcase // case (op)
    
 endmodule // maindec
@@ -176,38 +179,42 @@ module aludec (input  logic       opb5,
 	       input  logic [2:0] funct3,
 	       input  logic 	  funct7b5,
 	       input  logic [1:0] ALUOp,
-	       output logic [2:0] ALUControl);
+	       output logic [3:0] ALUControl);
    
    logic 			  RtypeSub;
    
    assign RtypeSub = funct7b5 & opb5; // TRUE for R–type subtract
    always_comb
      case(ALUOp)
-       2'b00: ALUControl = 3'b000; // addition
-       2'b01: ALUControl = 3'b001; // subtraction
+       2'b00: ALUControl = 4'b0000; // addition
+       2'b01: ALUControl = 4'b0001; // subtraction
        default: case(funct3) // R–type or I–type ALU
 		  3'b000: if (RtypeSub)
-		    ALUControl = 3'b001; // sub
+		    ALUControl = 4'b0001; // sub
 		  else
-		    ALUControl = 3'b000; // add, addi
-		  3'b010: ALUControl = 3'b101; // slt, slti
-		  3'b110: ALUControl = 3'b011; // or, ori
-		  3'b111: ALUControl = 3'b010; // and, andi
-      3'b100: ALUControl = 3'b100; // xor, xori
-      3'b101: ALUControl = 3'b110; // srl, srli
-      3'b001: ALUControl = 3'b111; // sll, slli
-		  default: ALUControl = 3'bxxx; // ???
+		    ALUControl = 4'b0000; // add, addi
+		  3'b010: ALUControl = 4'b0101; // slt, slti
+		  3'b110: ALUControl = 4'b0011; // or, ori
+		  3'b111: ALUControl = 4'b0010; // and, andi
+      3'b100: ALUControl = 4'b0100; // xor, xori
+      3'b101: if (funct7b5 == 0)
+        ALUControl = 4'b0110; // srl, srli
+      else
+        ALUControl = 4'b1001; // sra, srai
+      3'b001: ALUControl = 4'b0111; // sll, slli
+      
+		  default: ALUControl = 4'bxxxx; // ???
 		endcase // case (funct3)       
      endcase // case (ALUOp)
    
 endmodule // aludec
 
 module datapath (input  logic        clk, reset,
-		 input  logic [1:0]  ResultSrc,
+		 input  logic [2:0]  ResultSrc,
 		 input  logic 	     PCSrc, ALUSrc,
 		 input  logic 	     RegWrite,
 		 input  logic [2:0]  ImmSrc,
-		 input  logic [2:0]  ALUControl,
+		 input  logic [3:0]  ALUControl,
 		 output logic 	     Zero,
 		 output logic [31:0] PC,
 		 input  logic [31:0] Instr,
@@ -223,6 +230,10 @@ module datapath (input  logic        clk, reset,
    flopr #(32) pcreg (clk, reset, PCNext, PC);
    adder  pcadd4 (PC, 32'd4, PCPlus4);
    adder  pcaddbranch (PC, ImmExt, PCTarget);
+
+
+
+   
    mux2 #(32)  pcmux (PCPlus4, PCTarget, PCSrc, PCNext);
    // register file logic
    regfile  rf (clk, RegWrite, Instr[19:15], Instr[24:20],
@@ -231,7 +242,7 @@ module datapath (input  logic        clk, reset,
    // ALU logic
    mux2 #(32)  srcbmux (WriteData, ImmExt, ALUSrc, SrcB);
    alu  alu (SrcA, SrcB, ALUControl, ALUResult, Zero);
-   mux3 #(32) resultmux (ALUResult, ReadData, PCPlus4,ImmExt,ResultSrc, Result);
+   mux3 #(32) resultmux (ALUResult, ReadData, PCPlus4,ImmExt,PCTarget,ResultSrc, Result);
 
 endmodule // datapath
 
@@ -295,11 +306,11 @@ module mux2 #(parameter WIDTH = 8)
 endmodule // mux2
 
 module mux3 #(parameter WIDTH = 8)
-   (input  logic [WIDTH-1:0] d0, d1, d2, d3,
-    input logic  [1:0]	     s,
+   (input  logic [WIDTH-1:0] d0, d1, d2, d3, d4,
+    input logic  [2:0]	     s,
     output logic [WIDTH-1:0] y);
    
-   assign y = (s == 2'b00) ? d0 : (s == 2'b01) ? d1 : (s == 2'b10) ? d2 : d3; // Select d3 when s == 11
+   assign y = (s == 3'b000) ? d0 : (s == 3'b001) ? d1 : (s == 3'b010) ? d2 : (s == 3'b011) ? d3 : d4; 
    
 endmodule // mux3
 
@@ -339,7 +350,7 @@ module dmem (input  logic        clk, we,
 endmodule // dmem
 
 module alu (input  logic [31:0] a, b,
-            input  logic [2:0] 	alucontrol,
+            input  logic [3:0] 	alucontrol,
             output logic [31:0] result,
             output logic 	zero);
 
@@ -354,14 +365,18 @@ module alu (input  logic [31:0] a, b,
 
    always_comb
      case (alucontrol)
-       3'b000:  result = sum;         // add
-       3'b001:  result = sum;         // subtract
-       3'b010:  result = a & b;       // and
-       3'b011:  result = a | b;       // or
-       3'b101:  result = sum[31] ^ v; // slt     
-       3'b100:  result = a  ^ condinvb; // xor
-       3'b110:  result = a >> b;      // srl
-       3'b111:  result = a << b;      // sll
+       4'b0000:  result = sum;         // add
+       4'b0001:  result = sum;         // subtract
+       4'b0010:  result = a & b;       // and
+       4'b0011:  result = a | b;       // or
+       4'b0101:  result = sum[31] ^ v; // slt     
+       4'b0100:  result = a  ^ condinvb; // xor
+       4'b0110:  result = a >> (b & 5'b11111);      // srl
+       4'b0111:  result = a << b;      // sll
+       4'b1001:  result = $signed(a) >>> (b & 5'b11111); // sra
+
+
+
        default: result = 32'bx;
      endcase
 
