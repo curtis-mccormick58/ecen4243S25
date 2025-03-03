@@ -10,6 +10,19 @@
 // Expect simulator to print "Simulation succeeded"
 // when the value 25 (0x19) is written to address 100 (0x64)
 
+
+/*
+How to pull:
+git fetch --all
+git branch backup-main
+git reset --hard origin/main
+
+How to push:
+git add .
+git commit
+git push
+*/
+
 //   Instruction  opcode    funct3    funct7
 //   add          0110011   000       0000000
 //   sub          0110011   000       0100000
@@ -27,30 +40,50 @@
 
 // Add the following to the code:
 //  Instruction   opcode    funct3    funct7      
-//  auipc         0010111   imm       immediate   
+//  auipc         0010111   imm       immediate   x
 //  bge           1100011   101       immediate   
 //  bgeu          1100011   111       immediate   
 //  blt           1100011   100       immediate   
 //  bltu          1100011   110       immediate   
-//  bne           1100011   001       immediate    
-//  jalr          1100111   000       immediate
-//  lb            0000011   000       immediate
-//  lbu           0000011   100       immediate
-//  lh            0000011   001       immediate
-//  lhu           0000011   101       immediate
-//  lui           0110111   imm       immediate
-//  sb            0100011   000       immediate
-//  sh            0100011   001       immediate
-//  sll           0110011   001       0000000     
-//  slli          0010011   001       000000*     
-//  sltiu         0010011   011       immediate   
-//  sltu          0110011   011       0000000     
-//  sra           0110011   101       0100000     
-//  srai          0010011   101       010000**    
-//  srl           0110011   101       0000000     
-//  srli          0010011   101       000000*     
-//  xor           0110011   100       0000000     
-//  xori          0010011   100       immediate   
+//  bne           1100011   001       immediate   x 
+//  jalr          1100111   000       immediate   
+//  lb            0000011   000       immediate   
+//  lbu           0000011   100       immediate   
+//  lh            0000011   001       immediate   
+//  lhu           0000011   101       immediate   
+//  lui           0110111   imm       immediate   x
+//  sb            0100011   000       immediate   
+//  sh            0100011   001       immediate   
+//  sll           0110011   001       0000000     x
+//  slli          0010011   001       000000*     x
+//  sltiu         0010011   011       immediate   x
+//  sltu          0110011   011       0000000     x
+//  sra           0110011   101       0100000     x
+//  srai          0010011   101       010000**    x
+//  srl           0110011   101       0000000     x
+//  srli          0010011   101       000000*     x
+//  xor           0110011   100       0000000     x
+//  xori          0010011   100       immediate   x
+
+//SLTU rd, rs1, rs2  {two registers}
+// desitnation, comparing 1 vs 2
+/*
+  rd = 1 if rs1 < rs2
+  rd = 0 if rs1 > rs2
+*/
+
+//SLTUI rd, rs1, imm {one register, one immediate}
+// desitnation, comparing 1 vs 2
+/*
+  rd = 1 if rs1 < imm
+  rd = 0 if rs1 > imm
+*/
+
+/*
+bge:
+rs1, rs2, immediate
+if (rs1 >= rs2) jump to PC + immediate
+*/
 
 module testbench();
 
@@ -67,7 +100,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/lui.memfile"};
+        memfilename = {"../testing/sltiu.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -189,23 +222,23 @@ module aludec (input  logic       opb5,
        2'b00: ALUControl = 4'b0000; // addition
        2'b01: ALUControl = 4'b0001; // subtraction
        default: case(funct3) // R–type or I–type ALU
-		  3'b000: if (RtypeSub)
-		    ALUControl = 4'b0001; // sub
-		  else
-		    ALUControl = 4'b0000; // add, addi
-		  3'b010: ALUControl = 4'b0101; // slt, slti
-		  3'b110: ALUControl = 4'b0011; // or, ori
-		  3'b111: ALUControl = 4'b0010; // and, andi
-      3'b100: ALUControl = 4'b0100; // xor, xori
-      3'b101: if (funct7b5 == 0)
-        ALUControl = 4'b0110; // srl, srli
-      else
-        ALUControl = 4'b1001; // sra, srai
-      3'b001: ALUControl = 4'b0111; // sll, slli
-      
-		  default: ALUControl = 4'bxxxx; // ???
-		endcase // case (funct3)       
-     endcase // case (ALUOp)
+		              3'b000: if (RtypeSub)
+		                        ALUControl = 4'b0001; // sub
+		                      else
+                          ALUControl = 4'b0000; // add, addi
+                  3'b010: ALUControl = 4'b0101; // slt, slti
+                  3'b110: ALUControl = 4'b0011; // or, ori
+                  3'b111: ALUControl = 4'b0010; // and, andi
+                  3'b100: ALUControl = 4'b0100; // xor, xori
+                  3'b101: if (funct7b5 == 0)
+                            ALUControl = 4'b0110; // srl, srli
+                          else
+                            ALUControl = 4'b1001; // sra, srai
+                  3'b001: ALUControl = 4'b0111; // sll, slli
+                  3'b011: ALUControl = 4'b1010; // sltu, sltiu
+		              default: ALUControl = 4'bxxxx; // ???
+		            endcase // case (funct3)       
+        endcase // case (ALUOp)
    
 endmodule // aludec
 
@@ -374,6 +407,10 @@ module alu (input  logic [31:0] a, b,
        4'b0110:  result = a >> (b & 5'b11111);      // srl
        4'b0111:  result = a << b;      // sll
        4'b1001:  result = $signed(a) >>> (b & 5'b11111); // sra
+       4'b1010: if (a < b)             // sltu
+                  result = 1;
+                else
+                  result = 0;
 
 
 
