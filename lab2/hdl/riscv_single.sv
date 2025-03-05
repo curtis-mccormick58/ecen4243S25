@@ -178,24 +178,15 @@ module controller (input  logic [6:0] op,
    maindec md (op, ResultSrc, MemWrite, Branch,
 	       ALUSrc, RegWrite, Jump, ImmSrc, ALUOp);
    aludec ad (op[5], funct3, funct7b5, ALUOp, ALUControl);
-   //assign PCSrc = (Branch & (Zero ^ funct3[0]) | Jump);
-/*assign PCSrc = (Branch & (
-    (funct3[0] ^ Zero) |                  // BEQ: Zero == 1
-    (funct3[0] ^ ~Zero) |                 // BNE: Zero == 0
-    (funct3[0] ^ Lt) |              // BLT: LessThan == 1
-    (funct3[0] ^ Geq) |                   // BGE: Geq == 1
-    (funct3[0] ^ Lt) |              // BLTU: LessThan == 1 (unsigned)
-    (funct3[0] ^ Geq)                     // BGEU: Geq == 1 (unsigned)
-)) | Jump;                                     // Jump is independent
-*/
-assign PCSrc = (Branch & (
-    (funct3 == 3'b000 & Zero) |                  // BEQ: Zero == 1
-    (funct3 == 3'b001 & ~Zero) |                 // BNE: Zero == 0
-    (funct3 == 3'b100 & Lt)  |                   // BLT: LessThan == 1
-    (funct3 == 3'b101 & Geq) |                   // BGE: Geq == 1
-    (funct3 == 3'b110 & Ltu)  |                   // BLTU: LessThan == 1 (unsigned)
-    (funct3 == 3'b111 & Gequ)                     // BGEU: Geq == 1 (unsigned)
-)) | Jump;
+
+  assign PCSrc = (Branch & (
+      (funct3 == 3'b000 & Zero) |                  // BEQ: Zero == 1
+      (funct3 == 3'b001 & ~Zero) |                 // BNE: Zero == 0
+      (funct3 == 3'b100 & Lt)  |                   // BLT: LessThan == 1
+      (funct3 == 3'b101 & Geq) |                   // BGE: Geq == 1
+      (funct3 == 3'b110 & Ltu)  |                   // BLTU: LessThan == 1 (unsigned)
+      (funct3 == 3'b111 & Gequ)                     // BGEU: Geq == 1 (unsigned)
+  )) | Jump;
 
    
 endmodule // controller
