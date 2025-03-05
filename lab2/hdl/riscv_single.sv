@@ -100,7 +100,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/sltiu.memfile"};
+        memfilename = {"../testing/sll.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -120,9 +120,12 @@ module testbench();
    // check results
    always @(negedge clk)
      begin
+    // $display("Value in register 10: %h", dut.dut.dp.rf.regfile[10]);
+
 	if(MemWrite) begin
            if(DataAdr === 100 & WriteData === 25) begin
               $display("Simulation succeeded");
+
               $stop;
            end else if (DataAdr !== 96) begin
               $display("Simulation failed");
@@ -130,7 +133,8 @@ module testbench();
            end
 	end
      end
-     
+
+
 endmodule // testbench
 
 module riscvsingle (input  logic        clk, reset,
@@ -140,19 +144,19 @@ module riscvsingle (input  logic        clk, reset,
 		    output logic [31:0] ALUResult, WriteData,
 		    input  logic [31:0] ReadData);
    
-   logic 				ALUSrc, RegWrite, Jump, Zero;
+   logic 				ALUSrc, RegWrite, Jump, Zero, Geq, Gequ, Lt, Ltu;
    logic [2:0] 				ResultSrc;
    logic [2:0]          ImmSrc;
    logic [3:0] 				ALUControl;
    
-   controller c (Instr[6:0], Instr[14:12], Instr[30], Zero,
+   controller c (Instr[6:0], Instr[14:12], Instr[30], Zero, Geq, Gequ, Lt, Ltu,
 		 ResultSrc, MemWrite, PCSrc,
 		 ALUSrc, RegWrite, Jump,
 		 ImmSrc, ALUControl);
    datapath dp (clk, reset, ResultSrc, PCSrc,
 		ALUSrc, RegWrite,
 		ImmSrc, ALUControl,
-		Zero, PC, Instr,
+		Zero, Geq, Gequ, Lt, Ltu, PC, Instr,
 		ALUResult, WriteData, ReadData);
    
 endmodule // riscvsingle
@@ -160,7 +164,7 @@ endmodule // riscvsingle
 module controller (input  logic [6:0] op,
 		   input  logic [2:0] funct3,
 		   input  logic       funct7b5,
-		   input  logic       Zero,
+		   input  logic       Zero, Geq, Gequ, Lt, Ltu,
 		   output logic [2:0] ResultSrc,
 		   output logic       MemWrite,
 		   output logic       PCSrc, ALUSrc,
@@ -174,7 +178,25 @@ module controller (input  logic [6:0] op,
    maindec md (op, ResultSrc, MemWrite, Branch,
 	       ALUSrc, RegWrite, Jump, ImmSrc, ALUOp);
    aludec ad (op[5], funct3, funct7b5, ALUOp, ALUControl);
-   assign PCSrc = Branch & (Zero ^ funct3[0]) | Jump;
+   //assign PCSrc = (Branch & (Zero ^ funct3[0]) | Jump);
+/*assign PCSrc = (Branch & (
+    (funct3[0] ^ Zero) |                  // BEQ: Zero == 1
+    (funct3[0] ^ ~Zero) |                 // BNE: Zero == 0
+    (funct3[0] ^ Lt) |              // BLT: LessThan == 1
+    (funct3[0] ^ Geq) |                   // BGE: Geq == 1
+    (funct3[0] ^ Lt) |              // BLTU: LessThan == 1 (unsigned)
+    (funct3[0] ^ Geq)                     // BGEU: Geq == 1 (unsigned)
+)) | Jump;                                     // Jump is independent
+*/
+assign PCSrc = (Branch & (
+    (funct3 == 3'b000 & Zero) |                  // BEQ: Zero == 1
+    (funct3 == 3'b001 & ~Zero) |                 // BNE: Zero == 0
+    (funct3 == 3'b100 & Lt)  |                   // BLT: LessThan == 1
+    (funct3 == 3'b101 & Geq) |                   // BGE: Geq == 1
+    (funct3 == 3'b110 & Ltu)  |                   // BLTU: LessThan == 1 (unsigned)
+    (funct3 == 3'b111 & Gequ)                     // BGEU: Geq == 1 (unsigned)
+)) | Jump;
+
    
 endmodule // controller
 
@@ -248,7 +270,7 @@ module datapath (input  logic        clk, reset,
 		 input  logic 	     RegWrite,
 		 input  logic [2:0]  ImmSrc,
 		 input  logic [3:0]  ALUControl,
-		 output logic 	     Zero,
+		 output logic 	     Zero, Geq, Gequ, Lt, Ltu,
 		 output logic [31:0] PC,
 		 input  logic [31:0] Instr,
 		 output logic [31:0] ALUResult, WriteData,
@@ -257,7 +279,7 @@ module datapath (input  logic        clk, reset,
    logic [31:0] 		     PCNext, PCPlus4, PCTarget;
    logic [31:0] 		     ImmExt;
    logic [31:0] 		     SrcA, SrcB;
-   logic [31:0] 		     Result;
+   logic [31:0] 		     Result;  
    
    // next PC logic
    flopr #(32) pcreg (clk, reset, PCNext, PC);
@@ -274,7 +296,7 @@ module datapath (input  logic        clk, reset,
    extend  ext (Instr[31:7], ImmSrc, ImmExt);
    // ALU logic
    mux2 #(32)  srcbmux (WriteData, ImmExt, ALUSrc, SrcB);
-   alu  alu (SrcA, SrcB, ALUControl, ALUResult, Zero);
+   alu  alu (SrcA, SrcB, ALUControl, ALUResult, Zero, Geq, Gequ, Lt, Ltu);
    mux3 #(32) resultmux (ALUResult, ReadData, PCPlus4,ImmExt,PCTarget,ResultSrc, Result);
 
 endmodule // datapath
@@ -364,7 +386,7 @@ endmodule // top
 module imem (input  logic [31:0] a,
 	     output logic [31:0] rd);
    
-   logic [31:0] 		 RAM[416:0]; //change the amount of machine code instructions in .memfile so all instructions run
+   logic [31:0] 		 RAM[456:0]; //change the amount of machine code instructions in .memfile so all instructions run
    
    assign rd = RAM[a[31:2]]; // word aligned
    
@@ -385,7 +407,7 @@ endmodule // dmem
 module alu (input  logic [31:0] a, b,
             input  logic [3:0] 	alucontrol,
             output logic [31:0] result,
-            output logic 	zero);
+            output logic 	zero, geq, gequ, lt, ltu);
 
    logic [31:0] 	       condinvb, sum;
    logic 		       v;              // overflow
@@ -405,7 +427,7 @@ module alu (input  logic [31:0] a, b,
        4'b0101:  result = sum[31] ^ v; // slt     
        4'b0100:  result = a  ^ condinvb; // xor
        4'b0110:  result = a >> (b & 5'b11111);      // srl
-       4'b0111:  result = a << b;      // sll
+       4'b0111:  result = a << (b & 5'b11111);      // sll
        4'b1001:  result = $signed(a) >>> (b & 5'b11111); // sra
        4'b1010: if (a < b)             // sltu
                   result = 1;
@@ -418,8 +440,11 @@ module alu (input  logic [31:0] a, b,
      endcase
 
    assign zero = (result == 32'b0);
-   assign v = ~(alucontrol[0] ^ a[31] ^ b[31]) & (a[31] ^ sum[31]) & isAddSub;
-   
+   assign geq  = (zero | ($signed(a) > $signed(b)));
+   assign gequ = (zero | (a > b));
+   assign lt   = ($signed(a) < $signed(b));
+   assign ltu  = (a < b);
+   assign v = ~(alucontrol[0] ^ a[31] ^ b[31]) & (a[31] ^ sum[31]) & isAddSub; 
 endmodule // alu
 
 module regfile (input  logic        clk, 
@@ -440,6 +465,6 @@ module regfile (input  logic        clk,
 
    assign rd1 = (a1 != 0) ? rf[a1] : 0;
    assign rd2 = (a2 != 0) ? rf[a2] : 0;
-   
+
 endmodule // regfile
 
