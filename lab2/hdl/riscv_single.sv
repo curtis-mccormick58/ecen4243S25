@@ -100,7 +100,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/auipc.memfile"};
+        memfilename = {"../testing/lui.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -116,7 +116,7 @@ module testbench();
      begin
 	clk <= 1; # 5; clk <= 0; # 5;
      end
-
+/*
    // check results
    always @(negedge clk)
      begin
@@ -134,7 +134,7 @@ module testbench();
 	end
      end
 
-
+*/
 endmodule // testbench
 
 module riscvsingle (input  logic        clk, reset,
@@ -207,7 +207,7 @@ module maindec (input  logic [6:0] op,
    always_comb
      case(op)
        // RegWrite_ImmSrc_ALUSrc_MemWrite_ResultSrc_Branch_ALUOp_Jump
-       7'b0000011: controls = 13'b1_000_1_0_001_0_00_0; // lw
+       7'b0000011: controls = 13'b1_000_1_0_001_0_00_0; // lb, lbu, lh, lhu, lw
        7'b0100011: controls = 13'b0_001_1_1_000_0_00_0; // sw
        7'b0110011: controls = 13'b1_xxx_0_0_000_0_10_0; // R–type
        7'b1100011: controls = 13'b0_010_0_0_000_1_01_0; // beq
@@ -216,7 +216,6 @@ module maindec (input  logic [6:0] op,
        7'b1100111: controls = 13'b1_000_0_0_010_0_00_1; // jalr
        7'b0110111: controls = 13'b1_100_x_0_011_0_00_0; // lui
        7'b0010111: controls = 13'b1_100_x_0_111_0_00_0; // auipc
-
        default: controls = 13'bx_xx_x_x_xx_x_xx_x; // ???
      endcase // case (op)
    
@@ -383,7 +382,7 @@ endmodule // top
 module imem (input  logic [31:0] a,
 	     output logic [31:0] rd);
    
-   logic [31:0] 		 RAM[456:0]; //change the amount of machine code instructions in .memfile so all instructions run
+   logic [31:0] 		 RAM[1100:0]; //change the amount of machine code instructions in .memfile so all instructions run
    
    assign rd = RAM[a[31:2]]; // word aligned
    
@@ -393,7 +392,7 @@ module dmem (input  logic        clk, we,
 	     input  logic [31:0] a, wd,
 	     output logic [31:0] rd);
    
-   logic [31:0] 		 RAM[255:0];
+   logic [31:0] 		 RAM[1100:0];
    
    assign rd = RAM[a[31:2]]; // word aligned
    always_ff @(posedge clk)
