@@ -100,7 +100,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/jal.memfile"};
+        memfilename = {"../testing/auipc.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -213,6 +213,7 @@ module maindec (input  logic [6:0] op,
        7'b1100011: controls = 13'b0_010_0_0_000_1_01_0; // beq
        7'b0010011: controls = 13'b1_000_1_0_000_0_10_0; // I–type ALU
        7'b1101111: controls = 13'b1_011_0_0_010_0_00_1; // jal
+       7'b1100111: controls = 13'b1_000_0_0_010_0_00_1; // jalr
        7'b0110111: controls = 13'b1_100_x_0_011_0_00_0; // lui
        7'b0010111: controls = 13'b1_100_x_0_111_0_00_0; // auipc
 
@@ -270,27 +271,32 @@ module datapath (input  logic        clk, reset,
    logic [31:0] 		     PCNext, PCPlus4, PCTarget;
    logic [31:0] 		     ImmExt;
    logic [31:0] 		     SrcA, SrcB;
-   logic [31:0] 		     Result;  
+   logic [31:0] 		     Result;
+   logic [31:0]                      PCTargetJALR;
+   logic                             isJALR;
    
    // next PC logic
    flopr #(32) pcreg (clk, reset, PCNext, PC);
    adder  pcadd4 (PC, 32'd4, PCPlus4);
    adder  pcaddbranch (PC, ImmExt, PCTarget);
-
-
-
    
-   mux2 #(32)  pcmux (PCPlus4, PCTarget, PCSrc, PCNext);
+   // JALR specific - calculate target address from rs1 + immediate
+   assign isJALR = (Instr[6:0] == 7'b1100111);
+   assign PCTargetJALR = {(SrcA + ImmExt) & ~32'b1}; // rs1 + imm with lowest bit set to 0
+   
+   // PC Mux now selects between regular next PC, branch target PC, or JALR target PC
+   mux2 #(32) pcmux (PCPlus4, isJALR ? PCTargetJALR : PCTarget, PCSrc, PCNext);
+   
    // register file logic
    regfile  rf (clk, RegWrite, Instr[19:15], Instr[24:20],
 	       Instr[11:7], Result, SrcA, WriteData);
    extend  ext (Instr[31:7], ImmSrc, ImmExt);
+   
    // ALU logic
    mux2 #(32)  srcbmux (WriteData, ImmExt, ALUSrc, SrcB);
    alu  alu (SrcA, SrcB, ALUControl, ALUResult, Zero, Geq, Gequ, Lt, Ltu);
-   mux3 #(32) resultmux (ALUResult, ReadData, PCPlus4,ImmExt,PCTarget,ResultSrc, Result);
-
-endmodule // datapath
+   mux3 #(32) resultmux (ALUResult, ReadData, PCPlus4, ImmExt, PCTarget, ResultSrc, Result);
+endmodule
 
 module adder (input  logic [31:0] a, b,
 	      output logic [31:0] y);
