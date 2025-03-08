@@ -100,7 +100,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/sll.memfile"};
+        memfilename = {"../testing/jal.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -458,4 +458,3 @@ module regfile (input  logic        clk,
    assign rd2 = (a2 != 0) ? rf[a2] : 0;
 
 endmodule // regfile
-
