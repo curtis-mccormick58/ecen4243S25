@@ -100,7 +100,7 @@ module testbench();
    initial
      begin
 	string memfilename;
-        memfilename = {"../testing/lui.memfile"};
+        memfilename = {"../testing/lb.memfile"};
         $readmemh(memfilename, dut.imem.RAM);
      end
 
@@ -390,11 +390,20 @@ endmodule // imem
 
 module dmem (input  logic        clk, we,
 	     input  logic [31:0] a, wd,
+       input  logic [2:0] funct3, //adding to know which type of LB 
 	     output logic [31:0] rd);
    
    logic [31:0] 		 RAM[1100:0];
    
-   assign rd = RAM[a[31:2]]; // word aligned
+  always_comb
+    case(funct3)
+      3'b000: rd = {{24{RAM[a[31:2]][7]}}, RAM[a[31:2]][7:0]};    // LB (sign-extented)
+      //lb only loads the last 8 bits into a 32 bit array. To keep the sign-extention working we just copy the 7th bit to the 31st bit by just repeating it 24 times.
+      3'b100: rd = {{24'b0}, RAM[a[31:2]][7:0]};                  // LBU (zero-extented)
+      3'b010: rd = RAM[a[31:2]];                                  // LW (full word)
+      default: rd = RAM[a[31:2]];                                 // default
+    endcase
+   //assign rd = RAM[a[31:2]]; // word aligned
    always_ff @(posedge clk)
      if (we) RAM[a[31:2]] <= wd;
    
