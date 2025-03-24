@@ -375,7 +375,8 @@ module top (input  logic        clk, reset,
    riscvsingle rv32single (clk, reset, PC, Instr, MemWrite, DataAdr,
 			   WriteData, ReadData);
    imem imem (PC, Instr);
-   dmem dmem (clk, MemWrite, DataAdr, WriteData, ReadData);
+   dmem dmem (clk, MemWrite, DataAdr, WriteData, ReadData, funct3(Instr[14:12])); // Adding funct3 to dmem to support different load types (e.g., lb, lbu, lh, lhu, lw)
+// funct3[2:0] comes from the instruction's [14:12] bits and tells dmem how to interpret the load
    
 endmodule // top
 
@@ -401,6 +402,8 @@ module dmem (input  logic        clk, we,
       //lb only loads the last 8 bits into a 32 bit array. To keep the sign-extention working we just copy the 7th bit to the 31st bit by just repeating it 24 times.
       3'b100: rd = {{24'b0}, RAM[a[31:2]][7:0]};                  // LBU (zero-extented)
       3'b010: rd = RAM[a[31:2]];                                  // LW (full word)
+      3'b001: rd = {{16{RAM[a[31:2]][15]}}, RAM[a[31:2]][15:0]};    // LH 
+      3'b101: rd = {16'b0, RAM[a[31:2]][15:0]};                     // LHU 
       default: rd = RAM[a[31:2]];                                 // default
     endcase
    //assign rd = RAM[a[31:2]]; // word aligned
