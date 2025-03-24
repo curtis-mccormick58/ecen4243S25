@@ -18,7 +18,7 @@
 # ** Warning: (vlib-34) Library already exists at "work".
 # Errors: 0, Warnings: 1
 # QuestaSim-64 vlog 2024.3_2 Compiler 2024.11 Nov 25 2024
-# Start time: 19:11:59 on Mar 10,2025
+# Start time: 14:46:00 on Mar 24,2025
 # vlog -reportprogress 300 riscv_single.sv 
 # -- Compiling module testbench
 # -- Compiling module riscvsingle
@@ -41,16 +41,16 @@
 # Top level modules:
 # 	testbench
 # 	flopenr
-# End time: 19:12:00 on Mar 10,2025, Elapsed time: 0:00:01
+# End time: 14:46:00 on Mar 24,2025, Elapsed time: 0:00:00
 # Errors: 0, Warnings: 0
 # vsim -debugdb -voptargs="+acc" work.testbench 
-# Start time: 19:12:00 on Mar 10,2025
+# Start time: 14:46:00 on Mar 24,2025
 # ** Note: (vsim-3812) Design is being optimized...
 # ** Note: (vsim-8611) Generating debug db.
 # ** Warning: (vopt-10587) Some optimizations are turned off because the +acc switch is in effect. This will cause your simulation to run slowly. Please use -access/-debug to maintain needed visibility. The +acc switch would be deprecated in a future release.
 # Support of the MGLS_LICENSE_FILE and LM_LICENSE_FILE licensing environment variables will be discontinued starting with the 2025.1 release. Please update to using the SALT_LICENSE_SERVER variable.
 # Please contact Siemens EDA Customer Support (https://support.sw.siemens.com/) for assistance.
-# ** Note: (vopt-4301) Memory core inferred for signal 'RAM' width=32, depth=1101, type=RAM at location riscv_single.sv:396
+# ** Note: (vopt-4301) Memory core inferred for signal 'RAM' width=32, depth=1101, type=RAM at location riscv_single.sv:395
 # ** Note: (vsim-12126) Error and warning message counts have been restored: Errors=0, Warnings=1.
 # Loading sv_std.std
 # Loading work.testbench(fast)
@@ -69,12 +69,7 @@
 # Loading work.mux3(fast)
 # Loading work.imem(fast)
 # Loading work.dmem(fast)
-# ** Warning: (vsim-2685) [TFMPC] - Too few port connections for 'dmem'.  Expected 6, found 5.
-#    Time: 0 ns  Iteration: 0  Instance: /testbench/dut/dmem File: riscv_single.sv Line: 378
-# ** Warning: (vsim-3015) [PCDPC] - Port size (3) does not match connection size (32) for port 'funct3'. The port definition is at: riscv_single.sv(393).
-#    Time: 0 ns  Iteration: 0  Instance: /testbench/dut/dmem File: riscv_single.sv Line: 378
-# ** Warning: (vsim-3722) riscv_single.sv(378): [TFMPC] - Missing connection for port 'rd'.
 # ** Note: (vsim-8900) Creating design debug database vsim.dbg.
-# 32'hxxxxxxxx
-# End time: 19:19:39 on Mar 10,2025, Elapsed time: 0:07:39
-# Errors: 0, Warnings: 4
+# 32'h0000000a
+# End time: 14:46:53 on Mar 24,2025, Elapsed time: 0:00:53
+# Errors: 0, Warnings: 1
