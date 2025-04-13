@@ -170,7 +170,7 @@ module riscv(input  logic        clk, reset,
 		opD, funct3D, funct7b5D, ImmSrcD,
 		FlushE, ZeroE, PCSrcE, ALUControlE, ALUSrcAE, ALUSrcBE, ResultSrcEb0,
 		MemWriteM, RegWriteM, 
-		RegWriteW, ResultSrcW);
+		RegWriteW, ResultSrcW, TakeBranch);
 
    datapath dp(clk, reset,
               StallF, PCF, InstrF,
@@ -448,7 +448,7 @@ end
 
 
    // Memory stage pipeline register
-   flopr  #(102) regM(clk, reset, 
+   flopr  #(104) regM(clk, reset, 
                       {ALUResultE, WriteDataE, RdE, PCPlus4E, funct3E},
                       {ALUResultM, WriteDataM, RdM, PCPlus4M, funct3M});
 
