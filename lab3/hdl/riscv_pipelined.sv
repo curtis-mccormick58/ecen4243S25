@@ -226,10 +226,14 @@ module controller(input  logic		 clk, reset,
    aludec  ad(opD[5], funct3D, funct7b5D, ALUOpD, ALUControlD);
    
    // Execute stage pipeline control register and logic
-   floprc #(15) controlregE(clk, reset, FlushE,
-                            {RegWriteD, ResultSrcD, MemWriteD, JumpD, BranchD, ALUControlD,ALUSrcAD, ALUSrcBD, funct3D}, // add A and increase bit size
-                            {RegWriteE, ResultSrcE, MemWriteE, JumpE, BranchE, ALUControlE, ALUSrcAE, ALUSrcBE, funct3E});
-
+  floprc #(16) controlregE(
+  clk, reset, FlushE,
+  {RegWriteD, ResultSrcD, MemWriteD, JumpD, BranchD, ALUControlD,
+   ALUSrcAD, ALUSrcBD, funct3D, (opD == 7'b1100111)}, // <- JalrD
+  {RegWriteE, ResultSrcE, MemWriteE, JumpE, BranchE, ALUControlE,
+   ALUSrcAE, ALUSrcBE, funct3E, JalrE}
+);
+// add A and increase bit size
    assign PCSrcE = (BranchE & ZeroE) | JumpE;
    assign ResultSrcEb0 = ResultSrcE[0];
    
@@ -285,21 +289,27 @@ module aludec(input  logic       opb5,
 
    always_comb
   case(ALUOp)
-    2'b00:                ALUControl = 4'b0000; // load/store/add
-    2'b01:                ALUControl = 4'b0001; // branch = subtract
-    2'b11:                ALUControl = 4'b1111; // LUI pass-through
+    2'b00: ALUControl = 4'b0000; // add (load/store)
+    2'b01: ALUControl = 4'b0001; // subtract (branches)
+    2'b11: begin
+      if (opb5 == 1'b0)
+        ALUControl = 4'b1110; // LUI
+      else
+        ALUControl = 4'b1111; // AUIPC
+    end
     default: case(funct3)
       3'b000: ALUControl = (funct7b5) ? 4'b0001 : 4'b0000; // sub or add
-        3'b001: ALUControl = 4'b0010; // sll
-        3'b010: ALUControl = 4'b0011; // slt
-        3'b011: ALUControl = 4'b0100; // sltu
-        3'b100: ALUControl = 4'b0101; // xor
-        3'b101: ALUControl = (funct7b5) ? 4'b0110 : 4'b0111; // sra or srl
-        3'b110: ALUControl = 4'b1000; // or
-        3'b111: ALUControl = 4'b1001; // and
-        default: ALUControl = 4'b0000;
+      3'b001: ALUControl = 4'b0010; // sll
+      3'b010: ALUControl = 4'b0011; // slt
+      3'b011: ALUControl = 4'b0100; // sltu
+      3'b100: ALUControl = 4'b0101; // xor
+      3'b101: ALUControl = (funct7b5) ? 4'b0110 : 4'b0111; // sra or srl
+      3'b110: ALUControl = 4'b1000; // or
+      3'b111: ALUControl = 4'b1001; // and
+      default: ALUControl = 4'b0000;
     endcase
   endcase
+
 endmodule
 
 module datapath(input logic clk, reset,
@@ -359,7 +369,20 @@ module datapath(input logic clk, reset,
    logic [31:0] 		    ResultW;
 
    // Fetch stage pipeline register and logic
-   mux2    #(32) pcmux(PCPlus4F, PCTargetE, PCSrcE, PCNextF);
+   //mux2    #(32) pcmux(PCPlus4F, PCTargetE, PCSrcE, PCNextF);
+   logic [31:0] JalrTargetE;
+logic        JalrE; // control signal for jalr
+
+assign JalrTargetE = (RD1E + ImmExtE) & ~32'b1;
+
+mux3 #(32) pcmux(
+  PCPlus4F,        // normal next
+  PCTargetE,       // for branches/jal
+  JalrTargetE,     // for jalr
+  {JalrE, PCSrcE}, // select line
+  PCNextF
+);
+
    flopenr #(32) pcreg(clk, reset, ~StallF, PCNextF, PCF);
    adder         pcadd(PCF, 32'h4, PCPlus4F);
 
@@ -390,7 +413,7 @@ module datapath(input logic clk, reset,
    adder         branchadd(ImmExtE, PCE, PCTargetE);
 
    // Memory stage pipeline register
-   flopr  #(104) regM(clk, reset, 
+   flopr  #(102) regM(clk, reset, 
                       {ALUResultE, WriteDataE, RdE, PCPlus4E, funct3E},
                       {ALUResultM, WriteDataM, RdM, PCPlus4M, funct3M});
 
@@ -653,6 +676,8 @@ module alu(input  logic [31:0] a, b,
        4'b1111: result = b;                             // lui
        4'b1000: result = $signed(a) >>> b[4:0]; // sra/srai
        4'b1001: result = (a < b) ? 32'd1 : 32'd0; // sltu/sltiu (unsigned)
+       4'b1110: result = b << 12;     // LUI shift
+       4'b1111: result = a + (b << 12); // AUIPC
        default: result = 32'bx;
      endcase
    end
