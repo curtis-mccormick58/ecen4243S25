@@ -175,7 +175,7 @@ module riscv(input  logic        clk, reset,
    datapath dp(clk, reset,
               StallF, PCF, InstrF,
               opD, funct3D, funct7b5D, StallD, FlushD, ImmSrcD, //  fixed: no funct3M here
-              FlushE, ForwardAE, ForwardBE, PCSrcE, ALUControlE, ALUSrcAE, ALUSrcBE, ZeroE,
+              FlushE, ForwardAE, ForwardBE, PCSrcE, ALUControlE, ALUSrcAE, ALUSrcBE, ZeroE, TakeBranch,
               MemWriteM, WriteDataM, ALUResultM, ReadDataM,
               RegWriteW, ResultSrcW,
               Rs1D, Rs2D, Rs1E, Rs2E, RdE, RdM, RdW, funct3M); //  keep this one
@@ -206,7 +206,8 @@ module controller(input  logic		 clk, reset,
                   output logic 	     RegWriteM, // for Hazard Unit				  
                   // Writeback stage control signals
                   output logic 	     RegWriteW, // for datapath and Hazard Unit
-                  output logic [1:0] ResultSrcW);
+                  output logic [1:0] ResultSrcW,
+                  input logic        TakeBranch);
 
    // pipelined control signals
    logic 			     RegWriteD, RegWriteE;
@@ -221,8 +222,8 @@ module controller(input  logic		 clk, reset,
    logic [2:0]     funct3E;
    
    // Decode stage logic
-   maindec md(opD, ResultSrcD, MemWriteD, BranchD,
-              ALUSrcAD, ALUSrcBD, RegWriteD, JumpD, ImmSrcD, ALUOpD);
+   maindec md(opD, funct3D, ResultSrcD, MemWriteD, BranchD,
+           ALUSrcAD, ALUSrcBD, RegWriteD, JumpD, ImmSrcD, ALUOpD);
    aludec  ad(opD[5], funct3D, funct7b5D, ALUOpD, ALUControlD);
    
    // Execute stage pipeline control register and logic
@@ -234,7 +235,7 @@ module controller(input  logic		 clk, reset,
    ALUSrcAE, ALUSrcBE, funct3E, JalrE}
 );
 // add A and increase bit size
-   assign PCSrcE = (BranchE & ZeroE) | JumpE;
+   assign PCSrcE = (BranchE & TakeBranch) | JumpE;
    assign ResultSrcEb0 = ResultSrcE[0];
    
    // Memory stage pipeline control register
@@ -249,6 +250,7 @@ module controller(input  logic		 clk, reset,
 endmodule
 
 module maindec(input  logic [6:0] op,
+               input logic [2:0] funct3D,  // <-- Add
                output logic [1:0] ResultSrc,
                output logic 	  MemWrite,
                output logic 	  Branch,ALUSrcA, ALUSrcB,
@@ -267,7 +269,18 @@ module maindec(input  logic [6:0] op,
        7'b0000011: controls = 13'b1_000_0_1_0_01_0_00_0; // lb, lh, lw, lbu, lhu
        7'b0100011: controls = 13'b0_001_0_1_1_00_0_00_0; // sb, sh, sw (S-type)
        7'b0110011: controls = 13'b1_0xx_0_0_0_00_0_10_0; // R-type 
-       7'b1100011: controls = 13'b0_010_0_0_0_00_1_01_0; // beq
+       7'b1100011: begin
+  case (funct3D)
+    3'b000: controls = 13'b0_010_0_0_0_00_1_01_0; // beq
+    3'b001: controls = 13'b0_010_0_0_0_00_1_01_0; // bne
+    3'b100: controls = 13'b0_010_0_0_0_00_1_01_0; // blt
+    3'b101: controls = 13'b0_010_0_0_0_00_1_01_0; // bge
+    3'b110: controls = 13'b0_010_0_0_0_00_1_01_0; // bltu
+    3'b111: controls = 13'b0_010_0_0_0_00_1_01_0; // bgeu
+    default: controls = 13'bx_010_x_x_x_xx_x_xx_x;
+  endcase
+end
+
        7'b0010011: controls = 13'b1_000_0_1_0_00_0_10_0; // I-type ALU
        7'b1101111: controls = 13'b1_011_0_0_0_10_0_00_1; // jal
        7'b0000000: controls = 13'b0_000_0_0_0_00_0_00_0; // need valid values at reset
@@ -331,6 +344,7 @@ module datapath(input logic clk, reset,
                 input logic       ALUSrcAE, // add A
                 input logic 	    ALUSrcBE,
                 output logic 	    ZeroE,
+                output logic TakeBranch, 
                 // Memory stage signals
                 input logic 	    MemWriteM, 
                 output logic [31:0] WriteDataM, ALUResultM,
@@ -343,6 +357,7 @@ module datapath(input logic clk, reset,
                 output logic [4:0]  RdE, RdM, RdW,
                 output logic [2:0] funct3M);
 
+   logic [2:0] funct3E;
    // Fetch stage signals
    logic [31:0] 		    PCNextF, PCPlus4F;
    // Decode stage signals
@@ -411,6 +426,26 @@ mux3 #(32) pcmux(
    mux2   #(32)  srcbmux(WriteDataE, ImmExtE, ALUSrcBE, SrcBE);
    alu           alu(SrcAE, SrcBE, ALUControlE, ALUResultE, ZeroE);
    adder         branchadd(ImmExtE, PCE, PCTargetE);
+
+   // Branch comparator logic
+logic BrLT, BrLTU, BrUn;
+
+assign BrUn = funct3E[2]; // unsigned flag
+assign BrLT  = $signed(SrcAE) < $signed(SrcBE);
+assign BrLTU = SrcAE < SrcBE;
+
+always_comb begin
+  case (funct3E)
+    3'b000: TakeBranch = (SrcAE == SrcBE);     // beq
+    3'b001: TakeBranch = (SrcAE != SrcBE);     // bne
+    3'b100: TakeBranch = (BrUn ? BrLTU : BrLT);  // blt
+    3'b101: TakeBranch = (BrUn ? ~BrLTU : ~BrLT); // bge
+    3'b110: TakeBranch = BrLTU;                // bltu
+    3'b111: TakeBranch = ~BrLTU;               // bgeu
+    default: TakeBranch = 1'b0;
+  endcase
+end
+
 
    // Memory stage pipeline register
    flopr  #(102) regM(clk, reset, 
@@ -662,26 +697,23 @@ module alu(input  logic [31:0] a, b,
    assign sum = a + ((alucontrol == 4'b0001) ? -b : b); // subtract if needed
 
    always_comb begin
-     case (alucontrol)
-       4'b0000: result = a + b;                         // add
-       4'b0001: result = a - b;                         // sub
-       4'b0010: result = a << b[4:0];                   // sll
-       4'b0011: result = ($signed(a) < $signed(b)) ? 1 : 0; // slt
-       4'b0100: result = (a < b) ? 1 : 0;               // sltu
-       4'b0101: result = a ^ b;                         // xor
-       4'b0110: result = $signed(a) >>> b[4:0];         // sra
-       4'b0111: result = a >> b[4:0];                   // srl
-       4'b1000: result = a | b;                         // or
-       4'b1001: result = a & b;                         // and
-       4'b1111: result = b;                             // lui
-       4'b1000: result = $signed(a) >>> b[4:0]; // sra/srai
-       4'b1001: result = (a < b) ? 32'd1 : 32'd0; // sltu/sltiu (unsigned)
-       4'b1110: result = b << 12;     // LUI shift
-       4'b1111: result = a + (b << 12); // AUIPC
-       default: result = 32'bx;
-     endcase
-   end
+  case (alucontrol)
+    4'b0000: result = a + b;                           // add
+    4'b0001: result = a - b;                           // sub
+    4'b0010: result = a << b[4:0];                     // sll
+    4'b0011: result = ($signed(a) < $signed(b)) ? 1 : 0; // slt
+    4'b0100: result = (a < b) ? 1 : 0;                 // sltu
+    4'b0101: result = a ^ b;                           // xor
+    4'b0110: result = $signed(a) >>> b[4:0];           // sra
+    4'b0111: result = a >> b[4:0];                     // srl
+    4'b1000: result = a | b;                           // or
+    4'b1001: result = a & b;                           // and
+    4'b1110: result = b << 12;                         // LUI shift
+    4'b1111: result = a + (b << 12);                   // AUIPC
+    default: result = 32'bx;
+  endcase
+end
+
 
    assign zero = (result == 0);
 endmodule
-
