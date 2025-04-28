@@ -8,39 +8,49 @@ rvtest_entry_point:
     nop
 
     # switch to supervisor mode	
-    # Set mstatus.MPP to 01, set MPEC to a trampoline address where supervisor should begin, do mret
-    
-				# fill in instructions here			
-    mret                    	# enter supervisor mode at supervisorstart
+    # Set mstatus.MPP to 01, set MEPC to a trampoline address where supervisor should begin, do mret
+    csrr t0, mstatus          # Read mstatus
+    li t1, 0x00001800         # Mask to clear MPP bits (bits 11 and 12)
+    not t1, t1
+    and t0, t0, t1             # Clear MPP bits
+    li t1, 0x00000800         # Value to set MPP=01 (Supervisor mode)
+    or t0, t0, t1
+    csrw mstatus, t0          # Write back modified mstatus
+
+    la t0, supervisorstart    # Load address of supervisorstart
+    csrw mepc, t0             # Set mepc to supervisorstart
+
+    mret                      # enter supervisor mode at supervisorstart
     nop
 
 supervisorstart:
-    la t0, pagetable        	# get address of root page table
-				# fill in instructions here 
-    csrw satp, t0         	# enable virtual memory
-    
-    # now we are execuiting on virtual page 0x80000, which is also physical page 0x80000
+    la t0, pagetable          # get address of root page table
+    srli t0, t0, 12            # Shift right by 12 to get PPN
+    li t1, 0x80000000          # Set Sv32 mode (bit 31 = 1)
+    or t0, t1, t0              # Combine Sv32 mode + page table address
+    csrw satp, t0              # enable virtual memory
+
+    # now we are executing on virtual page 0x80000, which is also physical page 0x80000
     # (this can be whatever you want as long as you use the correct address defined in the proj)	
     li t0, 0x90000300       
     li t1, 42
     sw t1, 0(t0)
 
-
-    la t0, testcode         # address of a routine to run
+    la t0, testcode           # address of a routine to run
     lui t1, 0x10000         
-    add t0, t0, t1          # address of testcode on virtual page 0x90000 
-    jr t0                   # jump to the testcode on Virtual page 0x90000, 
-                            #   which still points to same code on physical page 0x80000
-    nop                     # shouldn't be executed
+    add t0, t0, t1            # address of testcode on virtual page 0x90000 
+    jr t0                    # jump to the testcode on Virtual page 0x90000, 
+                              # which still points to same code on physical page 0x80000
+    nop                      # shouldn't be executed
 
 testcode:
     li t0, 42                # do something
 
 write_tohost:
-    la s1, tohost           # terminate with write tohost
-    li t0, 1                # 1 for success, 3 for failure
-    sw t0, 0(s1)            # send success code (yay)
-    sw zero, 4(s1)          # not obvious why Sail isn't terminating unless this write is done
+    la s1, tohost             # terminate with write tohost
+    li t0, 1                  # 1 for success, 3 for failure
+    sw t0, 0(s1)              # send success code (yay)
+    sw zero, 4(s1)            # not obvious why Sail isn't terminating unless this write is done
 
 self_loop:
     j self_loop
@@ -50,11 +60,9 @@ tohost:
 
 .data
 
-
 .align 16
 # root (L1) Page table situated at 0x80010000
 pagetable:
 
 .align 12
 # L0 page table situated at 0x80011000
-
