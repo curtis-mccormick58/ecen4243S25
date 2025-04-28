@@ -4,30 +4,28 @@
 rvtest_entry_point:
 
     # set up PMP so all of memory is accessible and we don't trap when entering supervisor mode
+    csrw pmpcfg0, 0x0000000F //set pmpconfig to 00001111 or F
+    li t0, 0xFFFFFFFF
+    csrw pmpaddr0, t0
     # Define region 0 to cover all addresses as RWX
-    nop
+    #nop
 
     # switch to supervisor mode	
+    csrr t0, mstatus
+    li t1, 0x1800
+    not t2, t1
+    and t0, t0, t2
+    li t2, 0x0800
+    or t0, t0, t2
+    csrw mstatus, t0
     # Set mstatus.MPP to 01, set MEPC to a trampoline address where supervisor should begin, do mret
-    csrr t0, mstatus          # Read mstatus
-    li t1, 0x00001800         # Mask to clear MPP bits (bits 11 and 12)
-    not t1, t1
-    and t0, t0, t1             # Clear MPP bits
-    li t1, 0x00000800         # Value to set MPP=01 (Supervisor mode)
-    or t0, t0, t1
-    csrw mstatus, t0          # Write back modified mstatus
-
-    la t0, supervisorstart    # Load address of supervisorstart
-    csrw mepc, t0             # Set mepc to supervisorstart
+    # Set mepc to supervisorstart
 
     mret                      # enter supervisor mode at supervisorstart
-    nop
+    #nop
 
 supervisorstart:
     la t0, pagetable          # get address of root page table
-    srli t0, t0, 12            # Shift right by 12 to get PPN
-    li t1, 0x80000000          # Set Sv32 mode (bit 31 = 1)
-    or t0, t1, t0              # Combine Sv32 mode + page table address
     csrw satp, t0              # enable virtual memory
 
     # now we are executing on virtual page 0x80000, which is also physical page 0x80000
@@ -63,6 +61,7 @@ tohost:
 .align 16
 # root (L1) Page table situated at 0x80010000
 pagetable:
+
 
 .align 12
 # L0 page table situated at 0x80011000
